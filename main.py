@@ -1,61 +1,106 @@
-import torch
+import numpy as np
+import matplotlib.pyplot as plt
+from modules import FeedForwardNeuralNetwork, BCELoss, SGD
 
 
-def manual(X_value, neuron_1, neuron_2, neuron_3, neuron_1_bias, neuron_2_bias):
-    
-    # layer 1
-    print(f"input {X_value}")
-    X_value_1 = torch.cat((X_value, neuron_1_bias))
-    out_1 = torch.dot(neuron_1, X_value_1)
-    print(f"output neuron_1 {out_1}")
-    
-    X_value_2 = torch.cat((X_value, neuron_2_bias))
-    out_2 = torch.dot(neuron_2, X_value_2)
-    print(f"output neuron_2 {out_2}")
-    
-    xy_2 = torch.tensor([out_1.item(), out_2.item()])
-    print(f"concatinated out_1 and out_1 {xy_2}")
+def load_data(n_samples=10, seed=42):
+    np.random.seed(seed)
+    x = np.random.uniform(-10, 10, n_samples)
+    # generates label 0 for negative 1 for positve
+    y = np.maximum(0, np.sign(x))
+    data = list(zip(x, y))
+    return data
 
-    # layer 2
-    out_3 = torch.dot(neuron_3, xy_2)
-    print(f"output final neuron_3 {out_3}")
-    
 
-def torch_way(X_value, neuron_1, neuron_2, neuron_3):
-    layer_1 = torch.nn.Linear(2, 2, bias=False)
-    layer_2 = torch.nn.Linear(2, 1, bias=False)
+def train(model, loss_fn, optimiser, train_set, epochs=5):
+    train_loss = []
+    accuracy = []
+    print("start training")
+    for i in range(epochs):
+        correct_n = 0
+        train_loss_epoch = 0.0
+        for x, y in train_set:
+            y_pred = model(x)
+            train_loss_epoch += loss_fn(y_pred, y)
 
-    with torch.no_grad():  # Ensure no gradient tracking during initialization
-        combined_weights = torch.stack((neuron_1, neuron_2))
-        layer_1.weight.copy_(combined_weights)
-        layer_2.weight.copy_(neuron_3)
+            grad = loss_fn.backward()
+            model.backward(grad)
+            optimiser.step()
 
-    print(f"weights layer_1 {layer_1.weight}")
-    print(f"weights layer_2 {layer_2.weight}")
+            # calculate correct_n for accuracy
+            if np.round(y_pred) == y:
+                correct_n += 1
+                
+        train_loss.append(train_loss_epoch)
+        accuracy.append(correct_n / len(train_set))
+        print(f"accuracy of epoch {i} : {accuracy[i]}")
+ 
+    print("first accuracy", accuracy[0])
+    print("first loss", train_loss[0])
+    print("final accuracy", accuracy[-1])
+    print("final loss", train_loss[-1])
 
-    out_1 = layer_1(X_value)
-    print(f"layer_1 output {out_1}")
-    out_2 = layer_2(out_1)
-    print(f"layer_2 output {out_2}")
+    return train_loss, accuracy
+
+
+def evaluate(model, loss_fn, optimiser, eval_set):
+    correct_n = 0
+    eval_loss = 0.0
+    for x, y in eval_set:
+        y_pred = model(x)
+        eval_loss += loss_fn(y_pred, y)
+
+        if np.round(y_pred) == y:
+            correct_n += 1
+            
+    accuracy = correct_n / len(eval_set)
+
+    return eval_loss, accuracy
+
+
+def plot_loss(loss):
+    plt.clf()
+    plt.plot(loss)
+    plt.savefig('results/loss_plot.png')
+
+
+def plot_accuracy(accuracy):
+    plt.clf()
+    plt.plot(accuracy)
+    plt.savefig('results/accuracy_plot.png')
 
 
 def main():
-    # X_value = torch.tensor([1.0, 2.0], requires_grad=False),
-    X_value = torch.tensor([1.0, 2.0])
+    # model
+    input_d = 1
+    model_d = 2
+    n_layers = 0
+    output_d = 1
+    np.random.seed(42)
+    seed_train_data = 42
+    seed_val_data = 41
     
-    # layer 1 
-    # third item corresponds to the weighting of the
-    neuron_1 = torch.tensor([2.0, 2.0, 1.0])
-    neuron_1_bias = torch.tensor([1.0])
-    neuron_2 = torch.tensor([-2.0, -4.0, -2.0])
-    neuron_2_bias = torch.tensor([1.0])
-    
-    # layer 2
-    neuron_3 = torch.tensor([1.0, 1.0])
-    
-    manual(X_value, neuron_1, neuron_2, neuron_3, neuron_1_bias, neuron_2_bias)
-    print("\n", 50 * "=", "\n")
-    # torch_way(X_value, neuron_1, neuron_2, neuron_3)
+    # training
+    lr = 0.01
+    epochs = 10
+
+    # lets build a postive / negative number classifer
+    train_set = load_data(100, seed_train_data)
+    test_set = load_data(20, seed_val_data)
+
+    model = FeedForwardNeuralNetwork(n_layers, model_d, input_d, output_d)
+
+    loss_fn = BCELoss()
+    optimiser = SGD(lr, model)
+
+    train_loss, accuracy = train(model, loss_fn, optimiser, train_set, epochs)
+
+    eval_loss, accuracy = evaluate(model, loss_fn, optimiser, test_set)
+    print("Evaluation Loss:", eval_loss)
+    print("Evaluation Accuracy:", accuracy)
+
+    plot_accuracy(accuracy)
+    plot_loss(train_loss)
 
 
 if __name__ == "__main__":

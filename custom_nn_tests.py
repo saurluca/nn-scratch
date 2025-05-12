@@ -1,5 +1,5 @@
 import numpy as np
-from custom_nn import ReLU, Sigmoid, Softmax, LinearLayer, FeedForwardNeuralNetwork
+from modules import ReLU, Sigmoid, Softmax, LinearLayer, FeedForwardNeuralNetwork
 
 
 def test_relu_forward():
