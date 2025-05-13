@@ -1,6 +1,5 @@
 import numpy as np
 
-VERBOSE = False
 
 
 class Module:
@@ -149,9 +148,7 @@ class LinearLayer(Module):
     def forward(self, x):
         if np.isscalar(x):
             x = np.array([x])
-            if VERBOSE:
-                print("x is scalar, converting to 1D array")
-        self.input = x  # Store the converted input
+        self.input = x 
         y = np.matmul(x, self.weights)
         if self.use_bias:
             y += self.bias
@@ -159,9 +156,6 @@ class LinearLayer(Module):
 
     def backward(self, grad):
         # calculate the jacobian for the weights
-        if np.isscalar(self.input):
-            # Handle scalar input properly
-            self.input = np.array([self.input])
 
         # Ensure input is 2D array (n_samples, input_features)
         if len(self.input.shape) == 1:
@@ -171,48 +165,56 @@ class LinearLayer(Module):
         else:
             self.grad_weights = self.input.T @ grad
 
-        # calculate the gradient of the bias
+        # The bias gradient is just the gradient itself
         if self.use_bias:
             self.grad_bias = (
                 grad.copy()
-            )  # The bias gradient is just the gradient itself
+            ) 
 
         # calculate the gradient in respect to x
         return grad @ np.transpose(self.weights)
 
 
 class FeedForwardNeuralNetwork(Module):
-    def __init__(self, n_layers, model_d, input_d, output_d):
+    def __init__(self, n_layers, model_d, input_d, output_d, activation_fn="ReLU", final_activation_fn=None):
         self.n_layers = n_layers
         self.model_d = model_d
         self.input_d = input_d
         self.output_d = output_d
+        self.activation_fn = activation_fn
         self.l_stack = []
 
+        # initial layer
         self.l_stack.append(LinearLayer(input_d, model_d))
-        self.l_stack.append(LeakyReLU())
-        for i in range(n_layers):
-            self.l_stack.append(LinearLayer(model_d, model_d))
-            self.l_stack.append(LeakyReLU())
-        self.l_stack.append(LinearLayer(model_d, output_d))
+        self.l_stack.append(get_activation_fn(activation_fn))
         
-        # self.l_stack.append(Softmax())
-
-        # Print network structure
-        print("Network structure:")
-        for i, layer in enumerate(self.l_stack):
-            print(f"Layer {i}: {type(layer).__name__}")
+        # hidden layers
+        for i in range(n_layers):
+            # linear layer
+            self.l_stack.append(LinearLayer(model_d, model_d))
+            # add activation function
+            self.l_stack.append(get_activation_fn(activation_fn))
+        
+        # final layer
+        self.l_stack.append(LinearLayer(model_d, output_d))
+        if final_activation_fn:
+            self.l_stack.append(get_activation_fn(final_activation_fn))
 
     def forward(self, x):
+        # iterate through each layer sequentially
         for layer in self.l_stack:
             x = layer(x)
         return x
 
     def backward(self, grad):
-        # Simplified backward pass - just iterate through layers in reverse
+        # iterate through each layer in reverse order
         for layer in reversed(self.l_stack):
             grad = layer.backward(grad)
-        return grad
+    
+    def print_structure(self):
+        print("Network structure:")
+        for i, layer in enumerate(self.l_stack):
+            print(f"Layer {i}: {type(layer).__name__}")
 
 
 class SGD(Module):
@@ -223,12 +225,9 @@ class SGD(Module):
     def step(self):
         for layer in self.model.l_stack:
             if isinstance(layer, LinearLayer):
-                # print(layer.grad_weights)
                 layer.weights = layer.weights - layer.grad_weights * self.lr
                 if layer.use_bias:
                     layer.bias = layer.bias - layer.grad_bias * self.lr
-
-                # print(f"Amount of weights update: {np.sum(np.abs(layer.grad_weights * self.lr))}")
 
     def zero_grad(self):
         for layer in self.model.l_stack:
@@ -237,3 +236,16 @@ class SGD(Module):
                 layer.grad_bias = np.zeros_like(layer.grad_bias)
             else:
                 layer.grad = 0
+
+
+def get_activation_fn(name):
+    if name == "ReLU":
+        return ReLU()
+    elif name == "LeakyReLU":
+        return LeakyReLU()
+    elif name == "Softmax":
+        return Softmax()
+    elif name == "Sigmoid":
+        return Sigmoid()
+    else:
+        raise ValueError(f"Activation function {name} not recognized.")

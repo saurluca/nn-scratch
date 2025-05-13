@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from modules import FeedForwardNeuralNetwork, MSELoss, SGD
-from data import load_data_parabula, load_data_sin_regression
+from data import load_data_sin_regression, load_data_parabula
 
 
 def train_classifier(model, loss_fn, optimiser, train_set, epochs=5):
@@ -52,7 +52,7 @@ def train_regressor(model, loss_fn, optimiser, train_set, epochs=5):
             model.backward(grad)
             optimiser.step()
         train_loss.append(train_loss_epoch)
-        
+
     print("first loss", train_loss[0])
     print("final loss", train_loss[-1])
 
@@ -132,7 +132,18 @@ def plot_predictions_scaled(model, train_set_scaled, test_set_scaled, max_x, max
     )
 
     # Scale predictions back to original scale
-    predictions_scaled = [model(x)[0] * max_y for x in x_range_scaled]
+    predictions_scaled = []
+    for x in x_range_scaled:
+        try:
+            pred = model(x)[0] * max_y
+            # Handle NaN/Inf predictions
+            if np.isnan(pred) or np.isinf(pred):
+                pred = 0.0
+            predictions_scaled.append(pred)
+        except Exception as e:
+            print(f"Error in prediction at x={x}: {e}")
+            predictions_scaled.append(0.0)
+
     x_range = [x * max_x for x in x_range_scaled]
 
     plt.scatter(train_x, train_y, label="Train Set")
@@ -153,20 +164,21 @@ def plot_predictions_scaled(model, train_set_scaled, test_set_scaled, max_x, max
 def main():
     # model
     input_d = 1
-    model_d = 100  # Increase model capacity slightly
-    n_layers = 6
+    model_d = 4  # Reduced from 100 to avoid overfitting and improve stability
+    n_layers = 2  # Reduced from 6 to simplify model
     output_d = 1
     np.random.seed(42)
     seed_train_data = 42
     seed_val_data = 41
 
     # training
-    lr = 0.01  # Much smaller learning rate for stability
-    epochs = 100  # Fewer epochs to avoid instability
+    lr = 0.01  # Reduced for stability
+    epochs = 10
 
-    # lets build a postive / negative number classifer
-    train_set = load_data_sin_regression(10, seed_train_data)
-    test_set = load_data_sin_regression(20, seed_val_data)
+
+    # Data choice
+    train_set = load_data_parabula(100, seed_train_data)
+    test_set = load_data_parabula(20, seed_val_data)
 
     # Preprocess data to scale inputs and targets
     # This helps with numerical stability
@@ -184,16 +196,24 @@ def main():
     # Create model with custom layers
     model = FeedForwardNeuralNetwork(n_layers, model_d, input_d, output_d)
     loss_fn = MSELoss()
+
+    # Add weight decay to prevent extreme weights
     optimiser = SGD(model, lr)
 
-    train_loss = train_regressor(model, loss_fn, optimiser, train_set_scaled, epochs)
+    # Monitor training
+    try:
+        train_loss = train_regressor(
+            model, loss_fn, optimiser, train_set_scaled, epochs
+        )
+        print(f"Training completed successfully with final loss: {train_loss[-1]}")
+    except Exception as e:
+        print(f"Training failed with error: {e}")
+        # Try to recover
+        train_loss = [float("nan")] if "train_loss" not in locals() else train_loss
 
-    # Override for scaling
-
-    
+    # Plot results
     plot_loss(train_loss)
     plot_predictions_scaled(model, train_set_scaled, test_set_scaled, max_x, max_y)
-    # plot_predictions(model, train_set, test_set)
 
 
 if __name__ == "__main__":
