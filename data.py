@@ -16,3 +16,11 @@ def load_data_sin_regression(n_samples=10, seed=42):
     y = np.sin(x)
     data = list(zip(x, y))
     return data
+
+
+def load_data_parabula(n_samples=10, seed=42):
+    np.random.seed(seed)
+    x = np.random.uniform(0, 10, n_samples)
+    y = x ** 2
+    data = list(zip(x, y))
+    return data

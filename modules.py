@@ -2,6 +2,7 @@ import numpy as np
 
 VERBOSE = False
 
+
 class Module:
     def forward(self, input):
         raise NotImplementedError("Not implemented")
@@ -23,7 +24,7 @@ class Softmax(Module):
 
     def backward(self, grad):
         raise NotImplementedError("Not implemented")
-    
+
 
 class MSELoss(Module):
     def __init__(self):
@@ -37,7 +38,7 @@ class MSELoss(Module):
 
     def backward(self):
         return 2 * (self.input_y_pred - self.input_y) / len(self.input_y_pred)
-    
+
     def __call__(self, y_pred, y):
         return self.forward(y_pred, y)
 
@@ -105,6 +106,11 @@ class ReLU(Module):
         return self.output
 
     def backward(self, grad):
+        active_neurons = np.sum(self.input > 0)
+        total_neurons = self.input.size
+        print(
+            f"ReLU active neurons: {active_neurons}/{total_neurons} ({active_neurons / total_neurons * 100:.1f}%)"
+        )
         return grad * np.where(self.input > 0, 1, 0)
 
 
@@ -115,12 +121,7 @@ class LinearLayer(Module):
         self.grad_bias = None
         self.input_d = input_d
         self.output_d = output_d
-
-        # if bias:
-        #     assert len(bias) == input_d
-        #     self.bias = bias
-        # else:
-        #     self.bias = np.zeros(input_d)
+        self.use_bias = use_bias
 
         if weights is not None:
             print(f"len(weights): {weights}, input_d: {input_d}")
@@ -131,19 +132,42 @@ class LinearLayer(Module):
                 loc=0, scale=np.sqrt(2.0 / input_d), size=(input_d, output_d)
             )
 
+        if use_bias:
+            if bias is not None:
+                self.bias = bias
+            else:
+                self.bias = np.zeros(output_d)
+
     def forward(self, x):
-        self.input = x
         if np.isscalar(x):
             x = np.array([x])
             if VERBOSE:
                 print("x is scalar, converting to 1D array")
+        self.input = x  # Store the converted input
         y = np.matmul(x, self.weights)
-        # y += self.bias
+        if self.use_bias:
+            y += self.bias
         return y
 
     def backward(self, grad):
-        # calculate the jacobian
-        self.grad_weights = np.outer(grad, self.input)
+        # calculate the jacobian for the weights
+        if np.isscalar(self.input):
+            # Handle scalar input properly
+            self.input = np.array([self.input])
+
+        # Ensure input is 2D array (n_samples, input_features)
+        if len(self.input.shape) == 1:
+            input_reshaped = self.input.reshape(-1, 1)
+            grad_reshaped = grad.reshape(1, -1)
+            self.grad_weights = input_reshaped @ grad_reshaped
+        else:
+            self.grad_weights = self.input.T @ grad
+
+        # calculate the gradient of the bias
+        if self.use_bias:
+            self.grad_bias = (
+                grad.copy()
+            )  # The bias gradient is just the gradient itself
 
         # calculate the gradient in respect to x
         return grad @ np.transpose(self.weights)
@@ -159,29 +183,58 @@ class FeedForwardNeuralNetwork(Module):
 
         self.l_stack.append(LinearLayer(input_d, model_d))
         self.l_stack.append(ReLU())
+        for i in range(n_layers):
+            self.l_stack.append(LinearLayer(model_d, model_d))
+            self.l_stack.append(ReLU())
         self.l_stack.append(LinearLayer(model_d, output_d))
-        # self.l_stack.append(Sigmoid())
-        
+        # self.l_stack.append(Softmax())
+
     def forward(self, x):
         for layer in self.l_stack:
             x = layer(x)
         return x
 
     def backward(self, grad):
-        for layer in reversed(self.l_stack):
-            grad = layer.backward(grad)
+        # for layer in reversed(self.l_stack):
+        #     grad = layer.backward(grad)
+        # print(f"first grad: {grad}")
+        for i in range(1, len(self.l_stack) + 1):
+            # print(f"grad of layer {i}: {grad}")
+            # print(f"Layer {i} type: {type(self.l_stack[-i])}")
+
+            # if np.all(grad == 0) and not np.all(grad == 0):
+            # print("WARNING: Initial grad is not zero but the output is zero.")
+            # print(f"Layer {i} type: {type(self.l_stack[-i])}")
+
+            is_zero = np.all(grad == 0)
+
+            grad = self.l_stack[-i].backward(grad)
+
+            if np.all(grad == 0) and not is_zero:
+                print(
+                    f"WARNING: Initial grad is not zero but the output is zero at layer {i} of type {type(self.l_stack[-i])}."
+                )
 
 
 class SGD(Module):
-    def __init__(self, lr, model):
+    def __init__(self, model, lr=0.01):
         self.lr = lr
         self.model = model
 
     def step(self):
         for layer in self.model.l_stack:
             if isinstance(layer, LinearLayer):
-                # TODO why do we transpose
-                layer.weights = layer.weights - np.transpose(layer.grad_weights) * self.lr 
-                
+                # print(layer.grad_weights)
+                layer.weights = layer.weights - layer.grad_weights * self.lr
+                if layer.use_bias:
+                    layer.bias = layer.bias - layer.grad_bias * self.lr
+
+                # print(f"Amount of weights update: {np.sum(np.abs(layer.grad_weights * self.lr))}")
+
     def zero_grad(self):
-        raise NotImplementedError("Not implemented")
+        for layer in self.model.l_stack:
+            if isinstance(layer, LinearLayer):
+                layer.grad_weights = np.zeros_like(layer.grad_weights)
+                layer.grad_bias = np.zeros_like(layer.grad_bias)
+            else:
+                layer.grad = 0

@@ -2,10 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from modules import FeedForwardNeuralNetwork, MSELoss, SGD
-from data import load_data_sin_regression
+from data import load_data_parabula
 
 
-def train(model, loss_fn, optimiser, train_set, epochs=5, calculate_accuracy=False):
+def train_classifier(model, loss_fn, optimiser, train_set, epochs=5):
     train_loss = []
     accuracy = []
     print("start training")
@@ -21,21 +21,48 @@ def train(model, loss_fn, optimiser, train_set, epochs=5, calculate_accuracy=Fal
             optimiser.step()
 
             # calculate correct_n for accuracy
-            if calculate_accuracy and np.round(y_pred) == y:
+            if np.round(y_pred) == y:
                 correct_n += 1
 
         train_loss.append(train_loss_epoch)
-        if calculate_accuracy:
-            accuracy.append(correct_n / len(train_set))
-            print(f"accuracy of epoch {i} : {accuracy[i]}")
+        accuracy.append(correct_n / len(train_set))
+        print(f"accuracy of epoch {i} : {accuracy[i]}")
 
-    if calculate_accuracy:
-        print("first accuracy", accuracy[0])
-        print("final accuracy", accuracy[-1])
+    print("first accuracy", accuracy[0])
+    print("final accuracy", accuracy[-1])
     print("first loss", train_loss[0])
     print("final loss", train_loss[-1])
 
     return train_loss, accuracy
+
+
+def train_regressor(model, loss_fn, optimiser, train_set, epochs=5):
+    train_loss = []
+    print("start training")
+
+    # print weights of first model layer:
+    print("weights", model.l_stack[0].weights)
+
+    for i in range(epochs):
+        train_loss_epoch = 0.0
+        for x, y in train_set:
+            optimiser.zero_grad()
+
+            y_pred = model(x)
+            train_loss_epoch += loss_fn(y_pred, y)
+
+            grad = loss_fn.backward()
+            model.backward(grad)
+            optimiser.step()
+        train_loss.append(train_loss_epoch)
+
+    # print weights of first model layer:
+    print("weights", model.l_stack[0].weights)
+
+    print("first loss", train_loss[0])
+    print("final loss", train_loss[-1])
+
+    return train_loss
 
 
 def evaluate(model, loss_fn, eval_set):
@@ -85,37 +112,44 @@ def plot_predictions(model, train_set, test_set):
     plt.legend()
     plt.savefig("results/predictions_plot.png")
 
+    # Print out the first 5 predictions vs the actual
+    first_5_predictions = predictions[:5]
+    first_5_actual = train_y[:5]
+    print("First 5 Predictions vs Actual:")
+    for pred, actual in zip(first_5_predictions, first_5_actual):
+        print(f"Prediction: {pred}, Actual: {actual}")
+
 
 def main():
     # model
     input_d = 1
-    model_d = 5
-    n_layers = 3
+    model_d = 2
+    n_layers = 1
     output_d = 1
     np.random.seed(42)
     seed_train_data = 42
     seed_val_data = 41
 
     # training
-    lr = 0.1
-    epochs = 10
+    lr = 0.01
+    epochs = 1
 
     # lets build a postive / negative number classifer
-    train_set = load_data_sin_regression(100, seed_train_data)
-    test_set = load_data_sin_regression(20, seed_val_data)
+    train_set = load_data_parabula(100, seed_train_data)
+    test_set = load_data_parabula(20, seed_val_data)
 
     model = FeedForwardNeuralNetwork(n_layers, model_d, input_d, output_d)
 
     loss_fn = MSELoss()
-    optimiser = SGD(lr, model)
+    optimiser = SGD(model, lr)
 
-    train_loss, accuracy = train(model, loss_fn, optimiser, train_set, epochs)
+    train_loss = train_regressor(model, loss_fn, optimiser, train_set, epochs)
+    # print("train_loss", train_loss)
 
-    eval_loss, accuracy = evaluate(model, loss_fn, test_set)
-    print("Evaluation Loss:", eval_loss)
-    print("Evaluation Accuracy:", accuracy)
+    # eval_loss, accuracy = evaluate(model, loss_fn, test_set)
+    # print("Evaluation Loss:", eval_loss)
+    # print("Evaluation Accuracy:", accuracy)
 
-    plot_accuracy(accuracy)
     plot_loss(train_loss)
 
     plot_predictions(model, train_set, test_set)
