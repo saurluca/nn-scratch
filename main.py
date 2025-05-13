@@ -170,19 +170,19 @@ def plot_predictions_scaled(
 def main():
     # model
     input_d = 1
-    model_d = 20  # Reduced from 100 to avoid overfitting and improve stability
-    n_layers = 2  # Reduced from 6 to simplify model
+    model_d = 10 # Reduced from 100 to avoid overfitting and improve stability
+    n_layers = 4  # Reduced from 6 to simplify model
     output_d = 1
-    np.random.seed(42)
-    seed_train_data = 42
-    seed_val_data = 41
+    np.random.seed(32)
+    seed_train_data = 46
+    seed_val_data = 44
 
     # training
-    lr = 0.01  # Reduced for stability
-    epochs = 200
+    lr = 0.001  # Reduced for stability
+    epochs = 1000
 
     # Data choice
-    train_set = load_data_sin_regression(100, seed_train_data)
+    train_set = load_data_sin_regression(25, seed_train_data)
     test_set = load_data_sin_regression(20, seed_val_data)
 
     # Preprocess data to standardize inputs and targets
