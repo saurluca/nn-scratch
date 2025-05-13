@@ -106,12 +106,20 @@ class ReLU(Module):
         return self.output
 
     def backward(self, grad):
-        active_neurons = np.sum(self.input > 0)
-        total_neurons = self.input.size
-        print(
-            f"ReLU active neurons: {active_neurons}/{total_neurons} ({active_neurons / total_neurons * 100:.1f}%)"
-        )
         return grad * np.where(self.input > 0, 1, 0)
+
+
+class LeakyReLU(Module):
+    def __init__(self, alpha=0.01):
+        self.input = None
+        self.alpha = alpha  # Slope for negative inputs
+
+    def forward(self, x):
+        self.input = x
+        return np.maximum(self.alpha * x, x)
+
+    def backward(self, grad):
+        return grad * np.where(self.input > 0, 1, self.alpha)
 
 
 class LinearLayer(Module):
@@ -182,12 +190,18 @@ class FeedForwardNeuralNetwork(Module):
         self.l_stack = []
 
         self.l_stack.append(LinearLayer(input_d, model_d))
-        self.l_stack.append(ReLU())
+        self.l_stack.append(LeakyReLU())
         for i in range(n_layers):
             self.l_stack.append(LinearLayer(model_d, model_d))
-            self.l_stack.append(ReLU())
+            self.l_stack.append(LeakyReLU())
         self.l_stack.append(LinearLayer(model_d, output_d))
+        
         # self.l_stack.append(Softmax())
+
+        # Print network structure
+        print("Network structure:")
+        for i, layer in enumerate(self.l_stack):
+            print(f"Layer {i}: {type(layer).__name__}")
 
     def forward(self, x):
         for layer in self.l_stack:
@@ -195,25 +209,10 @@ class FeedForwardNeuralNetwork(Module):
         return x
 
     def backward(self, grad):
-        # for layer in reversed(self.l_stack):
-        #     grad = layer.backward(grad)
-        # print(f"first grad: {grad}")
-        for i in range(1, len(self.l_stack) + 1):
-            # print(f"grad of layer {i}: {grad}")
-            # print(f"Layer {i} type: {type(self.l_stack[-i])}")
-
-            # if np.all(grad == 0) and not np.all(grad == 0):
-            # print("WARNING: Initial grad is not zero but the output is zero.")
-            # print(f"Layer {i} type: {type(self.l_stack[-i])}")
-
-            is_zero = np.all(grad == 0)
-
-            grad = self.l_stack[-i].backward(grad)
-
-            if np.all(grad == 0) and not is_zero:
-                print(
-                    f"WARNING: Initial grad is not zero but the output is zero at layer {i} of type {type(self.l_stack[-i])}."
-                )
+        # Simplified backward pass - just iterate through layers in reverse
+        for layer in reversed(self.l_stack):
+            grad = layer.backward(grad)
+        return grad
 
 
 class SGD(Module):

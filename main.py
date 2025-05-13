@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from modules import FeedForwardNeuralNetwork, MSELoss, SGD
-from data import load_data_parabula
+from data import load_data_parabula, load_data_sin_regression
 
 
 def train_classifier(model, loss_fn, optimiser, train_set, epochs=5):
@@ -40,9 +40,6 @@ def train_regressor(model, loss_fn, optimiser, train_set, epochs=5):
     train_loss = []
     print("start training")
 
-    # print weights of first model layer:
-    print("weights", model.l_stack[0].weights)
-
     for i in range(epochs):
         train_loss_epoch = 0.0
         for x, y in train_set:
@@ -55,10 +52,7 @@ def train_regressor(model, loss_fn, optimiser, train_set, epochs=5):
             model.backward(grad)
             optimiser.step()
         train_loss.append(train_loss_epoch)
-
-    # print weights of first model layer:
-    print("weights", model.l_stack[0].weights)
-
+        
     print("first loss", train_loss[0])
     print("final loss", train_loss[-1])
 
@@ -120,39 +114,86 @@ def plot_predictions(model, train_set, test_set):
         print(f"Prediction: {pred}, Actual: {actual}")
 
 
+def plot_predictions_scaled(model, train_set_scaled, test_set_scaled, max_x, max_y):
+    # Use the scaled inputs, but show original scale outputs
+    plt.clf()
+
+    # Extract original values
+    train_x = [item[0] * max_x for item in train_set_scaled]
+    train_y = [item[1] * max_y for item in train_set_scaled]
+    test_x = [item[0] * max_x for item in test_set_scaled]
+    test_y = [item[1] * max_y for item in test_set_scaled]
+
+    # Generate model predictions on scaled inputs
+    x_range_scaled = np.linspace(
+        min(x for x, _ in train_set_scaled + test_set_scaled),
+        max(x for x, _ in train_set_scaled + test_set_scaled),
+        100,
+    )
+
+    # Scale predictions back to original scale
+    predictions_scaled = [model(x)[0] * max_y for x in x_range_scaled]
+    x_range = [x * max_x for x in x_range_scaled]
+
+    plt.scatter(train_x, train_y, label="Train Set")
+    plt.scatter(test_x, test_y, label="Test Set")
+    plt.plot(x_range, predictions_scaled, label="Model Predictions", color="red")
+    plt.legend()
+    plt.savefig("results/predictions_plot.png")
+
+    # Print out the first 5 predictions vs the actual
+    first_5_predictions = predictions_scaled[:5]
+    first_5_x = [x_range[i] for i in range(5)]
+    first_5_actual = train_y[:5]
+    print("First 5 Predictions vs Actual:")
+    for x, pred, actual in zip(first_5_x, first_5_predictions, first_5_actual):
+        print(f"Input: {x:.2f}, Prediction: {pred:.2f}, Actual: {actual:.2f}")
+
+
 def main():
     # model
     input_d = 1
-    model_d = 2
-    n_layers = 1
+    model_d = 100  # Increase model capacity slightly
+    n_layers = 6
     output_d = 1
     np.random.seed(42)
     seed_train_data = 42
     seed_val_data = 41
 
     # training
-    lr = 0.01
-    epochs = 1
+    lr = 0.01  # Much smaller learning rate for stability
+    epochs = 100  # Fewer epochs to avoid instability
 
     # lets build a postive / negative number classifer
-    train_set = load_data_parabula(100, seed_train_data)
-    test_set = load_data_parabula(20, seed_val_data)
+    train_set = load_data_sin_regression(10, seed_train_data)
+    test_set = load_data_sin_regression(20, seed_val_data)
 
+    # Preprocess data to scale inputs and targets
+    # This helps with numerical stability
+    train_set_scaled = []
+    max_x = max(abs(x) for x, _ in train_set)
+    max_y = max(abs(y) for _, y in train_set)
+
+    for x, y in train_set:
+        train_set_scaled.append((x / max_x, y / max_y))
+
+    test_set_scaled = [(x / max_x, y / max_y) for x, y in test_set]
+
+    print(f"Data scaled by factors: x={max_x}, y={max_y}")
+
+    # Create model with custom layers
     model = FeedForwardNeuralNetwork(n_layers, model_d, input_d, output_d)
-
     loss_fn = MSELoss()
     optimiser = SGD(model, lr)
 
-    train_loss = train_regressor(model, loss_fn, optimiser, train_set, epochs)
-    # print("train_loss", train_loss)
+    train_loss = train_regressor(model, loss_fn, optimiser, train_set_scaled, epochs)
 
-    # eval_loss, accuracy = evaluate(model, loss_fn, test_set)
-    # print("Evaluation Loss:", eval_loss)
-    # print("Evaluation Accuracy:", accuracy)
+    # Override for scaling
 
+    
     plot_loss(train_loss)
-
-    plot_predictions(model, train_set, test_set)
+    plot_predictions_scaled(model, train_set_scaled, test_set_scaled, max_x, max_y)
+    # plot_predictions(model, train_set, test_set)
 
 
 if __name__ == "__main__":
