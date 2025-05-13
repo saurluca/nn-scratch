@@ -23,6 +23,23 @@ class Softmax(Module):
 
     def backward(self, grad):
         raise NotImplementedError("Not implemented")
+    
+
+class MSELoss(Module):
+    def __init__(self):
+        self.input_y_pred = None
+        self.input_y = None
+
+    def forward(self, y_pred, y):
+        self.input_y_pred = y_pred
+        self.input_y = y
+        return np.mean((y_pred - y) ** 2)
+
+    def backward(self):
+        return 2 * (self.input_y_pred - self.input_y) / len(self.input_y_pred)
+    
+    def __call__(self, y_pred, y):
+        return self.forward(y_pred, y)
 
 
 class BCELoss(Module):
@@ -143,7 +160,7 @@ class FeedForwardNeuralNetwork(Module):
         self.l_stack.append(LinearLayer(input_d, model_d))
         self.l_stack.append(ReLU())
         self.l_stack.append(LinearLayer(model_d, output_d))
-        self.l_stack.append(Sigmoid())
+        # self.l_stack.append(Sigmoid())
         
     def forward(self, x):
         for layer in self.l_stack:
