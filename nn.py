@@ -4,14 +4,6 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 
-"""
-Move actiavtion function out of lienar layer
-Implement Sequentiel
-"""
-
-np.random.seed(42)
-
-
 class Sigmoid:
     def _sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
@@ -50,25 +42,14 @@ class SGD:
         self.momentum = 0.9 # TODO currently unused
     
     def zero_grad(self):
-        for param in self.params:
-            param['dW'] = 0.0
-            param['db'] = 0.0
+        for layer in self.params:
+            layer.dW = 0.0
+            layer.db = 0.0
     
     def step(self):
-        # # calculation of gradients
-        # grad = self.criterion.backward()
-        # self.model.backward(grad)
-        # # TODO currently only for one linear layer
-        # self.model.W -= self.model.dW * self.lr        
-        # self.model.b -= self.model.db * self.lr    
-        
-        # calculation of gradients
         for layer in self.params:
-            # print("layer", layer)
-            layer["W"] -= self.lr * layer["dW"]
-            layer["b"] -= self.lr * layer["db"]
-            print("layer w", layer["W"], " layer dW", layer["dW"])
-        
+            layer.W -= self.lr * layer.dW
+            layer.b -= self.lr * layer.db
         
     def __call__(self):
         return self.step()
@@ -91,8 +72,8 @@ class Sequential:
     def params(self):
         params = []
         for layer in self.layers:
-            if hasattr(layer, "params"):
-                params.append(layer.params())
+            if hasattr(layer, "W"):
+                params.append(layer)
         return params
     
         
@@ -119,9 +100,6 @@ class LinearLayer:
 
     def __call__(self, x):
         return self.forward(x)
-    
-    def params(self):
-        return {'W': self.W, 'dW': self.dW, 'b': self.b, 'db': self.db}
 
 
 def train(train_data, model, criterion, optimiser, n_epochs=10):
@@ -138,7 +116,7 @@ def train(train_data, model, criterion, optimiser, n_epochs=10):
             outputs_epoch.append(pred)
             
             # backward pass
-            optimiser.zero_grad()
+            # optimiser.zero_grad()
             grad = criterion.backward()
             model.backward(grad)
             optimiser.step()
@@ -160,8 +138,10 @@ def plot_predictions(outputs, targets):
 
 
 def main():
+    np.random.seed(42)
+    
     # config
-    n_epochs = 2
+    n_epochs = 10
     lr = 0.1
     
     # setup dummy data
@@ -183,11 +163,11 @@ def main():
     plot_loss(train_losses)
     plot_predictions(outputs[-1], targets)
     
-    print(f"final loss {train_losses[0]}")
+    print(f"final loss {train_losses[-1]}")
     
     # print out final model params
     final_params = model.params()[0]
-    print(f"true W {true_w} model w {final_params["W"]} \n true b {true_b}, model b {final_params["b"]}")
+    print(f"true W {true_w} model w {final_params.W} \n true b {true_b}, model b {final_params.b}")
     
 if __name__ == "main":
     main()
