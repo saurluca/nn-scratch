@@ -11,8 +11,19 @@ class Sigmoid:
     def forward(self, x):
         return self._sigmoid(x)
     
-    def backward(self, x):
-        return self._sigmoid(x) * (1 - self._sigmoid(x))
+    def backward(self, grad):
+        return self._sigmoid(grad) * (1 - self._sigmoid(grad)) * grad
+    
+    def __call__(self, x):
+        return self.forward(x)
+    
+
+class ReLU:
+    def forward(self, x):
+        return np.maximum(0, x)
+    
+    def backward(self, grad):
+        return np.where(grad > 0, 1, 0) * grad
     
     def __call__(self, x):
         return self.forward(x)
@@ -48,10 +59,11 @@ class SGD:
             layer.db = 0.0
     
     def step(self):
-        for layer in reversed(self.params):
+        for i, layer in enumerate(reversed(self.params)):
+            # print(f"layer {i} W {layer.W} dW {layer.dW} b {layer.b} db {layer.db}")
             layer.W -= self.lr * layer.dW
             layer.b -= self.lr * layer.db
-        
+
     def __call__(self):
         return self.step()
     
@@ -61,7 +73,7 @@ class Sequential:
         self.layers = layers
         
     def backward(self, grad):
-        for layer in self.layers:
+        for layer in reversed(self.layers):
             grad = layer.backward(grad)
         return grad
     
@@ -152,7 +164,7 @@ def main():
     lr = 0.1
     
     # setup dummy data
-    n_samples = 200
+    n_samples = 2000
     inputs = np.random.uniform(-1, 1, size=(n_samples, 3))
     true_w = np.array([1.5, -2.0, 0.5])
     true_b = -0.1
@@ -160,10 +172,10 @@ def main():
     train_data = list(zip(inputs, targets))
         
     model = Sequential([
-        LinearLayer(in_dim=3, out_dim=1), 
+        LinearLayer(in_dim=3, out_dim=4), 
+        Sigmoid(),
+        LinearLayer(in_dim=4, out_dim=1), 
         Sigmoid()
-        # LinearLayer(in_dim=4, out_dim=1), 
-        # Sigmoid()
     ])
     criterion = MSE()
     optimiser = SGD(model.params(), criterion, lr=lr)
