@@ -39,7 +39,8 @@ class SGD:
         self.params = params
         self.criterion = criterion
         self.lr = lr
-        self.momentum = 0.9 # TODO currently unused
+        self.momentum = momentum
+        # self.update = np.zeros_like
     
     def zero_grad(self):
         for layer in self.params:
@@ -47,7 +48,7 @@ class SGD:
             layer.db = 0.0
     
     def step(self):
-        for layer in self.params:
+        for layer in reversed(self.params):
             layer.W -= self.lr * layer.dW
             layer.b -= self.lr * layer.db
         
@@ -64,19 +65,20 @@ class Sequential:
             grad = layer.backward(grad)
         return grad
     
-    def __call__(self, x):
-        for layer in self.layers:
-            x = layer(x)
-        return x
-    
     def params(self):
+        """Return a list of layers that have a Weight vectors"""
         params = []
         for layer in self.layers:
             if hasattr(layer, "W"):
                 params.append(layer)
         return params
     
-        
+    def __call__(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
+    
+    
 class LinearLayer:
     def __init__(self, in_dim: int, out_dim: int):
         self.W = 0.1 * np.random.randn(out_dim, in_dim) # TODO xavier init
@@ -91,8 +93,7 @@ class LinearLayer:
         return self.W @ x + self.b
     
     def backward(self, grad):
-        # print(f"shape of incoming grad {grad}")
-        # print(f"shape of W {self.W.shape}")
+        # print(f"shape of incoming grad {grad} \n shape of W {self.W.shape}")
         self.dW = np.outer(grad, self.x)
         self.db = grad 
         grad = self.W.T @ grad
@@ -129,11 +130,17 @@ def train(train_data, model, criterion, optimiser, n_epochs=10):
 
 def plot_loss(losses):
     plt.plot(losses)
+    plt.title("Loss over epochs")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
     plt.show()
 
                     
 def plot_predictions(outputs, targets):
     plt.scatter(targets, outputs) 
+    plt.title("Predictions vs Targets")
+    plt.xlabel("Targets")
+    plt.ylabel("Predictions")
     plt.show()
 
 
@@ -155,6 +162,8 @@ def main():
     model = Sequential([
         LinearLayer(in_dim=3, out_dim=1), 
         Sigmoid()
+        # LinearLayer(in_dim=4, out_dim=1), 
+        # Sigmoid()
     ])
     criterion = MSE()
     optimiser = SGD(model.params(), criterion, lr=lr)
