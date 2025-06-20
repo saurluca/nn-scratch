@@ -36,26 +36,39 @@ class MSE:
         return np.mean((pred - target)**2)
         
     def backward(self):
-        return np.mean(0.5 * (self.pred - self.target))
+        return np.mean(0.5 * (self.pred - self.target)).reshape(1)
     
     def __call__(self, pred, target):
         return self.forward(pred, target)
 
 
 class SGD:
-    def __init__(self, model, criterion, lr=0.01, momentum=0.9):
-        self.model = model
+    def __init__(self, params, criterion, lr=0.01, momentum=0.9):
+        self.params = params
         self.criterion = criterion
         self.lr = lr
         self.momentum = 0.9 # TODO currently unused
     
+    def zero_grad(self):
+        for param in self.params:
+            param['dW'] = 0.0
+            param['db'] = 0.0
+    
     def step(self):
+        # # calculation of gradients
+        # grad = self.criterion.backward()
+        # self.model.backward(grad)
+        # # TODO currently only for one linear layer
+        # self.model.W -= self.model.dW * self.lr        
+        # self.model.b -= self.model.db * self.lr    
+        
         # calculation of gradients
-        grad = self.criterion.backward()
-        self.model.backward(grad)
-        # TODO currently only for one linear layer
-        self.model.W -= self.model.dW * self.lr        
-        self.model.b -= self.model.db * self.lr    
+        for layer in self.params:
+            # print("layer", layer)
+            layer["W"] -= self.lr * layer["dW"]
+            layer["b"] -= self.lr * layer["db"]
+            print("layer w", layer["W"], " layer dW", layer["dW"])
+        
         
     def __call__(self):
         return self.step()
@@ -76,42 +89,39 @@ class Sequential:
         return x
     
     def params(self):
+        params = []
         for layer in self.layers:
-            yield from layer.params()
+            if hasattr(layer, "params"):
+                params.append(layer.params())
+        return params
     
         
 class LinearLayer:
     def __init__(self, in_dim: int, out_dim: int):
-        # self.activation_fn = activation_fn
-        self.W = 0.1 * np.random.randn(out_dim, in_dim)
+        self.W = 0.1 * np.random.randn(out_dim, in_dim) # TODO xavier init
         self.b = np.zeros(out_dim)
         self.dW = 0.0
         self.db = 0.0
         self.x = None
-        # self.a = None
     
     def forward(self, x):
         # print(f"x: {x}, self.W {self.W}, self.b {self.b}")
         self.x = x
         return self.W @ x + self.b
-        # self.a = a
-        # x = self.activation_fn(a)
-        # return x
     
     def backward(self, grad):
-        # print(f"shape of incoming grad {grad.shape}")
+        # print(f"shape of incoming grad {grad}")
         # print(f"shape of W {self.W.shape}")
-        # grad = self.activation_fn.backward(self.a) * grad
         self.dW = np.outer(grad, self.x)
         self.db = grad 
-        grad = self.W.T @ grad 
+        grad = self.W.T @ grad
         return grad
 
     def __call__(self, x):
         return self.forward(x)
     
     def params(self):
-        return self.W, self.b
+        return {'W': self.W, 'dW': self.dW, 'b': self.b, 'db': self.db}
 
 
 def train(train_data, model, criterion, optimiser, n_epochs=10):
@@ -128,7 +138,10 @@ def train(train_data, model, criterion, optimiser, n_epochs=10):
             outputs_epoch.append(pred)
             
             # backward pass
-            optimiser.step()          
+            optimiser.zero_grad()
+            grad = criterion.backward()
+            model.backward(grad)
+            optimiser.step()
             
             # print(f"y {target}, pred {pred}, loss {loss}")
         train_losses.append(train_loss)
@@ -148,22 +161,23 @@ def plot_predictions(outputs, targets):
 
 def main():
     # config
-    n_epochs = 30
+    n_epochs = 2
     lr = 0.1
     
     # setup dummy data
     n_samples = 200
     inputs = np.random.uniform(-1, 1, size=(n_samples, 3))
-
     true_w = np.array([1.5, -2.0, 0.5])
     true_b = -0.1
     targets = Sigmoid()._sigmoid(inputs @ true_w + true_b)
-    
     train_data = list(zip(inputs, targets))
         
-    model = LinearLayer(in_dim=3, out_dim=1, activation_fn=Sigmoid())
+    model = Sequential([
+        LinearLayer(in_dim=3, out_dim=1), 
+        Sigmoid()
+    ])
     criterion = MSE()
-    optimiser = SGD(model, criterion, lr=lr)
+    optimiser = SGD(model.params(), criterion, lr=lr)
     
     train_losses, outputs = train(train_data, model, criterion, optimiser, n_epochs)
     plot_loss(train_losses)
@@ -172,8 +186,8 @@ def main():
     print(f"final loss {train_losses[0]}")
     
     # print out final model params
-    print(f"true W {true_w} model w {model.W} \n true b {true_b}, model b {model.b}")
-    
+    final_params = model.params()[0]
+    print(f"true W {true_w} model w {final_params["W"]} \n true b {true_b}, model b {final_params["b"]}")
     
 if __name__ == "main":
     main()
