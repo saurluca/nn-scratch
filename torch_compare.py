@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from data import load_data_sin_regression
 
@@ -12,7 +13,7 @@ def train_torch(model, loss_fn, optimizer, train_loader, epochs=5):
     train_loss = []
     print("start training")
 
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs)):
         train_loss_epoch = 0.0
         for batch_x, batch_y in train_loader:
             optimizer.zero_grad()
@@ -27,7 +28,7 @@ def train_torch(model, loss_fn, optimizer, train_loader, epochs=5):
         # Average loss over batches
         train_loss_epoch /= len(train_loader)
         train_loss.append(train_loss_epoch)
-        print(f"Epoch {epoch + 1}/{epochs}, Loss: {train_loss_epoch:.6f}")
+        # print(f"Epoch {epoch + 1}/{epochs}, Loss: {train_loss_epoch:.6f}")
 
     print("First loss:", train_loss[0])
     print("Final loss:", train_loss[-1])
@@ -193,7 +194,7 @@ def get_data_sin(batch_size=32, n_datapoints=100):
 def main():
     # model
     input_d = 1
-    model_d = 20
+    model_d = 50
     output_d = 1
     n_datapoints = 100
     np.random.seed(42)
