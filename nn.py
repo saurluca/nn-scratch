@@ -51,7 +51,7 @@ class SGD:
         self.criterion = criterion
         self.lr = lr
         self.momentum = momentum
-        # self.update = np.zeros_like
+        self.updates = [[np.zeros_like(layer.W), np.zeros_like(layer.b)] for layer in self.params]
     
     def zero_grad(self):
         for layer in self.params:
@@ -60,9 +60,14 @@ class SGD:
     
     def step(self):
         for i, layer in enumerate(reversed(self.params)):
+            # TODO mage less ugly indexing
+            # print("self.updates", self.updates[i])
             # print(f"layer {i} W {layer.W} dW {layer.dW} b {layer.b} db {layer.db}")
-            layer.W -= self.lr * layer.dW
-            layer.b -= self.lr * layer.db
+            self.updates[-i-1][0] = self.lr * layer.dW + self.momentum * self.updates[-i-1][0]
+            self.updates[-i-1][1] = self.lr * layer.db + self.momentum * self.updates[-i-1][1]
+            layer.W -= self.updates[-i-1][0]
+            layer.b -= self.updates[-i-1][1]
+            
 
     def __call__(self):
         return self.step()
@@ -164,7 +169,7 @@ def main():
     lr = 0.1
     
     # setup dummy data
-    n_samples = 2000
+    n_samples = 200
     inputs = np.random.uniform(-1, 1, size=(n_samples, 3))
     true_w = np.array([1.5, -2.0, 0.5])
     true_b = -0.1
@@ -172,13 +177,13 @@ def main():
     train_data = list(zip(inputs, targets))
         
     model = Sequential([
-        LinearLayer(in_dim=3, out_dim=4), 
+        LinearLayer(in_dim=3, out_dim=1), 
         Sigmoid(),
-        LinearLayer(in_dim=4, out_dim=1), 
-        Sigmoid()
+        # LinearLayer(in_dim=4, out_dim=1), 
+        # Sigmoid()
     ])
     criterion = MSE()
-    optimiser = SGD(model.params(), criterion, lr=lr)
+    optimiser = SGD(model.params(), criterion, lr=lr, momentum=0.9)
     
     train_losses, outputs = train(train_data, model, criterion, optimiser, n_epochs)
     plot_loss(train_losses)
