@@ -98,7 +98,7 @@ class Sequential:
     
 class LinearLayer:
     def __init__(self, in_dim: int, out_dim: int):
-        self.W = 0.1 * np.random.randn(out_dim, in_dim) # TODO xavier init
+        self.W = np.random.randn(out_dim, in_dim) * np.sqrt(2.0 / (in_dim + out_dim)) # xavier init
         self.b = np.zeros(out_dim)
         self.dW = 0.0
         self.db = 0.0
@@ -134,7 +134,7 @@ def train(train_data, model, criterion, optimiser, n_epochs=10):
             outputs_epoch.append(pred)
             
             # backward pass
-            # optimiser.zero_grad()
+            optimiser.zero_grad()
             grad = criterion.backward()
             model.backward(grad)
             optimiser.step()
