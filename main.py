@@ -9,7 +9,9 @@ from data import load_data_sin_regression
 def train_classifier(model, loss_fn, optimiser, train_set, epochs=5):
     train_loss = []
     accuracy = []
-    for i in tqdm(range(epochs), desc="Training", total=epochs, postfix={"loss": "N/A"}):
+    for i in tqdm(
+        range(epochs), desc="Training", total=epochs, postfix={"loss": "N/A"}
+    ):
         correct_n = 0
         train_loss_epoch = 0.0
         for x, y in train_set:
@@ -40,7 +42,9 @@ def train_regressor(model, loss_fn, optimiser, train_set, epochs=5):
     train_loss = []
     print("start training")
 
-    progress_bar = tqdm(range(epochs), desc="Training", total=epochs, postfix={"loss": "N/A"})
+    progress_bar = tqdm(
+        range(epochs), desc="Training", total=epochs, postfix={"loss": "N/A"}
+    )
     for i in progress_bar:
         train_loss_epoch = 0.0
         # Shuffle training set
@@ -56,7 +60,7 @@ def train_regressor(model, loss_fn, optimiser, train_set, epochs=5):
             optimiser.step()
         train_loss.append(train_loss_epoch)
         progress_bar.set_postfix({"loss": f"{train_loss_epoch:.4f}"})
-        
+
     print("first loss", train_loss[0])
     print("final loss", train_loss[-1])
 
@@ -178,7 +182,7 @@ def main():
     seed_val_data = 44
 
     # training
-    lr = 0.01 
+    lr = 0.01
     epochs = 200
 
     # Data choice

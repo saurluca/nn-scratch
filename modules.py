@@ -1,7 +1,6 @@
 import numpy as np
 
 
-
 class Module:
     def forward(self, input):
         raise NotImplementedError("Not implemented")
@@ -148,7 +147,7 @@ class LinearLayer(Module):
     def forward(self, x):
         if np.isscalar(x):
             x = np.array([x])
-        self.input = x 
+        self.input = x
         y = np.matmul(x, self.weights)
         if self.use_bias:
             y += self.bias
@@ -167,16 +166,22 @@ class LinearLayer(Module):
 
         # The bias gradient is just the gradient itself
         if self.use_bias:
-            self.grad_bias = (
-                grad.copy()
-            ) 
+            self.grad_bias = grad.copy()
 
         # calculate the gradient in respect to x
         return grad @ np.transpose(self.weights)
 
 
 class FeedForwardNeuralNetwork(Module):
-    def __init__(self, n_layers, model_d, input_d, output_d, activation_fn="ReLU", final_activation_fn=None):
+    def __init__(
+        self,
+        n_layers,
+        model_d,
+        input_d,
+        output_d,
+        activation_fn="ReLU",
+        final_activation_fn=None,
+    ):
         self.n_layers = n_layers
         self.model_d = model_d
         self.input_d = input_d
@@ -187,14 +192,14 @@ class FeedForwardNeuralNetwork(Module):
         # initial layer
         self.l_stack.append(LinearLayer(input_d, model_d))
         self.l_stack.append(get_activation_fn(activation_fn))
-        
+
         # hidden layers
         for i in range(n_layers):
             # linear layer
             self.l_stack.append(LinearLayer(model_d, model_d))
             # add activation function
             self.l_stack.append(get_activation_fn(activation_fn))
-        
+
         # final layer
         self.l_stack.append(LinearLayer(model_d, output_d))
         if final_activation_fn:
@@ -210,7 +215,7 @@ class FeedForwardNeuralNetwork(Module):
         # iterate through each layer in reverse order
         for layer in reversed(self.l_stack):
             grad = layer.backward(grad)
-    
+
     def print_structure(self):
         print("Network structure:")
         for i, layer in enumerate(self.l_stack):
